@@ -15,6 +15,10 @@
 #if defined(OXRS_ROOM8266)
 #include <OXRS_Room8266.h>
 OXRS_Room8266 oxrs;
+
+#elif defined(OXRS_LILYGO)
+#include <OXRS_LILYGOPOE.h>
+OXRS_LILYGOPOE oxrs;
 #endif
 
 /*--------------------------- Constants -------------------------------*/
@@ -25,8 +29,16 @@ OXRS_Room8266 oxrs;
 #define   DEFAULT_TELEMETRY_INTERVAL_MS   5000
 #define   TELEMETRY_INTERVAL_MS_MAX       60000
 
+// Default OneWire bus to I2C SDA pin so we can use existing OXRS
+// IDC I2C breakout headers typically found on most boards/shields
+#ifndef   ONE_WIRE_BUS
 #define   ONE_WIRE_BUS                    I2C_SDA
+#endif
+
+// Support up to a maximum 5x sensors
 #define   SENSOR_COUNT                    5
+
+// TODO: Make sensor resolution configurable?
 #define   SENSOR_RESOLUTION_BITS          9     // 9, 10, 11, or 12 bits
 
 /*--------------------------- Global Variables ------------------------*/
