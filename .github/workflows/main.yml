@@ -36,7 +36,7 @@ jobs:
         pip install --upgrade platformio
     
     - name: Build release binary
-      run: pio run -e room8266-eth
+      run: pio run -e room8266-eth -e lilygo-eth
 
     - name: Create release
       uses: ncipollo/release-action@v1
