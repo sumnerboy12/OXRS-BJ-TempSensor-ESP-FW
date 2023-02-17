@@ -27,7 +27,7 @@ OXRS_Room8266 oxrs;
 
 #define   ONE_WIRE_BUS                    I2C_SDA
 #define   SENSOR_COUNT                    3
-#define   SENSOR_RESOLUTION               9
+#define   SENSOR_RESOLUTION_BITS          9     // 9, 10, 11, or 12 bits
 
 /*--------------------------- Global Variables ------------------------*/
 // Config variables
@@ -74,7 +74,7 @@ void printAddress(DeviceAddress deviceAddress)
   for (uint8_t i = 0; i < 8; i++)
   {
     // zero pad the address if necessary
-    if (deviceAddress[i] < 16) oxrs.print("0");
+    if (deviceAddress[i] < 16) oxrs.print(F("0"));
     oxrs.print(deviceAddress[i], HEX);
   }
 }
@@ -96,12 +96,26 @@ void setup()
   // Start sensor library
   sensors.begin();
 
-  // Initialise our sensors
-  for (uint8_t i = 0; i < sensors.getDeviceCount(); i++)
+  // Log how many sensors we found on the bus
+  oxrs.print(F("[temp] "));
+  oxrs.print(sensors.getDS18Count());
+  oxrs.println(F(" ds18b20s found"));
+
+  if (sensors.getDS18Count() > SENSOR_COUNT)
   {
+    oxrs.print(F("[temp] too many ds18b20s, only support a max of "));
+    oxrs.println(SENSOR_COUNT);
+  }
+
+  // Initialise our sensors
+  for (uint8_t i = 0; i < sensors.getDS18Count(); i++)
+  {
+    if (i >= SENSOR_COUNT)
+      break;
+
     if (sensors.getAddress(sensorAddress[i], i))
     {
-      sensors.setResolution(sensorAddress[i], SENSOR_RESOLUTION);
+      sensors.setResolution(sensorAddress[i], SENSOR_RESOLUTION_BITS);
 
       oxrs.print(F("[temp] sensor "));
       oxrs.print(i);
