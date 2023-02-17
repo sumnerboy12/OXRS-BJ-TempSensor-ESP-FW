@@ -22,11 +22,11 @@ OXRS_Room8266 oxrs;
 #define   SERIAL_BAUD_RATE                115200
 
 // Config defaults and constraints
-#define   DEFAULT_TELEMETRY_INTERVAL_MS   1000
+#define   DEFAULT_TELEMETRY_INTERVAL_MS   5000
 #define   TELEMETRY_INTERVAL_MS_MAX       60000
 
 #define   ONE_WIRE_BUS                    I2C_SDA
-#define   SENSOR_COUNT                    3
+#define   SENSOR_COUNT                    5
 #define   SENSOR_RESOLUTION_BITS          9     // 9, 10, 11, or 12 bits
 
 /*--------------------------- Global Variables ------------------------*/
@@ -52,7 +52,7 @@ void setConfigSchema()
   
   JsonObject telemetryIntervalMs = json.createNestedObject("telemetryIntervalMs");
   telemetryIntervalMs["title"] = "Telemetry Interval (ms)";
-  telemetryIntervalMs["description"] = "How often to publish telemetry data (defaults to 1000ms, i.e. 1 second)";
+  telemetryIntervalMs["description"] = "How often to publish telemetry data (defaults to 5000ms, i.e. 5 seconds)";
   telemetryIntervalMs["type"] = "integer";
   telemetryIntervalMs["minimum"] = 1;
   telemetryIntervalMs["maximum"] = TELEMETRY_INTERVAL_MS_MAX;
@@ -79,18 +79,10 @@ void printAddress(DeviceAddress deviceAddress)
   }
 }
 
-/**
-  Setup
-*/
-void setup() 
+void initialiseSensors()
 {
-  // Start serial and let settle
-  Serial.begin(SERIAL_BAUD_RATE);
-  delay(1000);
-  Serial.println(F("[temp] starting up..."));
-
-  // Log the pin we are monitoring for pulse events
-  oxrs.print(F("[temp] one wire bus: "));
+  // Log the pin we are using for the OneWire bus
+  oxrs.print(F("[temp] one wire bus on GPIO "));
   oxrs.println(ONE_WIRE_BUS);
 
   // Start sensor library
@@ -107,7 +99,7 @@ void setup()
     oxrs.println(SENSOR_COUNT);
   }
 
-  // Initialise our sensors
+  // Initialise sensors
   for (uint8_t i = 0; i < sensors.getDS18Count(); i++)
   {
     if (i >= SENSOR_COUNT)
@@ -115,15 +107,48 @@ void setup()
 
     if (sensors.getAddress(sensorAddress[i], i))
     {
-      sensors.setResolution(sensorAddress[i], SENSOR_RESOLUTION_BITS);
-
       oxrs.print(F("[temp] sensor "));
       oxrs.print(i);
       oxrs.print(F(" found with address "));
       printAddress(sensorAddress[i]);
       oxrs.println();
+
+      // Set the sensor resolution
+      sensors.setResolution(sensorAddress[i], SENSOR_RESOLUTION_BITS);
     }
   }
+}
+
+void publishTelemetry()
+{
+  StaticJsonDocument<128> json;
+
+  char key[8];
+  for (uint8_t i = 0; i < SENSOR_COUNT; i++)
+  {
+    float tempC = sensors.getTempC(sensorAddress[i]);
+    if (tempC == DEVICE_DISCONNECTED_C)
+      continue;
+
+    sprintf_P(key, PSTR("temp%d"), i);
+    json[key] = tempC;
+  }
+
+  oxrs.publishTelemetry(json);
+}
+
+/**
+  Setup
+*/
+void setup() 
+{
+  // Start serial and let settle
+  Serial.begin(SERIAL_BAUD_RATE);
+  delay(1000);
+  Serial.println(F("[temp] starting up..."));
+
+  // Discover and initialise sensors
+  initialiseSensors();
 
   // Start hardware
   oxrs.begin(jsonConfig, NULL);
@@ -141,31 +166,15 @@ void loop()
   oxrs.loop();
 
   // Check if we need to send telemetry
-  elapsedTelemetryMs = millis() - lastTelemetryMs;
-  if (elapsedTelemetryMs >= telemetryIntervalMs)
+  if (millis() - lastTelemetryMs >= telemetryIntervalMs)
   {
-    // Request each sensor to read their temps
+    // Send request to OneWire bus asking sensors to read temps
     sensors.requestTemperatures();
 
-    // Build telemetry payload
-    StaticJsonDocument<128> json;
-    JsonArray temperatures = json.createNestedArray("temperatures");
-    
-    for (uint8_t i = 0; i < SENSOR_COUNT; i++)
-    {
-      float temperature_C = sensors.getTempC(sensorAddress[i]);
-      if (temperature_C != DEVICE_DISCONNECTED_C)
-      {
-        JsonObject element = temperatures.createNestedObject();
-        element["index"] = i;
-        element["celcius"] = temperature_C;
-      }
-    }
-    
-    // Publish telemetry and reset loop variables if successful
-    if (oxrs.publishTelemetry(json))
-    {
-      lastTelemetryMs = millis();
-    }
+    // Publish temperature telemetry data
+    publishTelemetry();
+
+    // Reset telemetry timer
+    lastTelemetryMs = millis();
   }
 }
