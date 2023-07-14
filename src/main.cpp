@@ -164,6 +164,7 @@ void publishHassDiscovery()
   char sensorId[8];
   char sensorName[8];
   char valueTemplate[32];
+  char telemetryTopic[64];
 
   for (uint8_t i = 0; i < SENSOR_COUNT; i++)
   {
@@ -175,16 +176,18 @@ void publishHassDiscovery()
     float tempC = sensors.getTempC(sensorAddress[i]);
     if (tempC != DEVICE_DISCONNECTED_C)
     {
-      oxrs.getHassDiscoveryJson(json, sensorId, true);
+      oxrs.getMQTT()->getHassDiscoveryJson(json, sensorId);
 
       sprintf_P(sensorName, PSTR("Temp %d"), i);
       json["name"]  = sensorName;
 
-      sprintf_P(valueTemplate, PSTR("{{ value_json.%s }}"), sensorId);
-      json["val_tpl"] = valueTemplate;
-
       json["dev_cla"] = "temperature";
       json["unit_of_meas"] = "°C";
+
+      json["stat_t"] = oxrs.getMQTT()->getTelemetryTopic(telemetryTopic);
+
+      sprintf_P(valueTemplate, PSTR("{{ value_json.%s }}"), sensorId);
+      json["val_tpl"] = valueTemplate;
     }
 
     oxrs.publishHassDiscovery(json, component, sensorId);
