@@ -49,6 +49,10 @@ uint32_t  telemetryIntervalMs           = DEFAULT_TELEMETRY_INTERVAL_MS;
 uint32_t  lastTelemetryMs               = 0L;
 uint32_t  elapsedTelemetryMs            = 0L;
 
+// Publish Home Assistant self-discovery config for each sensor
+bool g_hassDiscoveryPublished           = false;
+
+/*--------------------------- Instantiate Globals ---------------------*/
 // OneWire bus
 OneWire oneWire(ONE_WIRE_BUS);
 
@@ -149,6 +153,47 @@ void publishTelemetry()
   oxrs.publishTelemetry(json);
 }
 
+void publishHassDiscovery()
+{
+  if (g_hassDiscoveryPublished)
+    return;
+
+  char component[8];
+  sprintf_P(component, PSTR("sensor"));
+
+  char sensorId[8];
+  char sensorName[8];
+  char valueTemplate[32];
+
+  for (uint8_t i = 0; i < SENSOR_COUNT; i++)
+  {
+    // JSON config payload (empty if the sensor is not found, to clear any existing config)
+    DynamicJsonDocument json(1024);
+
+    sprintf_P(sensorId, PSTR("temp%d"), i);
+
+    float tempC = sensors.getTempC(sensorAddress[i]);
+    if (tempC != DEVICE_DISCONNECTED_C)
+    {
+      oxrs.getHassDiscoveryJson(json, sensorId, true);
+
+      sprintf_P(sensorName, PSTR("Temp %d"), i);
+      json["name"]  = sensorName;
+
+      sprintf_P(valueTemplate, PSTR("{{ value_json.%s }}"), sensorId);
+      json["val_tpl"] = valueTemplate;
+
+      json["dev_cla"] = "temperature";
+      json["unit_of_meas"] = "°C";
+    }
+
+    oxrs.publishHassDiscovery(json, component, sensorId);
+  }
+
+  // Only publish once on boot
+  g_hassDiscoveryPublished = true;
+}
+
 /**
   Setup
 */
@@ -188,5 +233,11 @@ void loop()
 
     // Reset telemetry timer
     lastTelemetryMs = millis();
+  }
+
+  // Check if we need to publish any Home Assistant discovery payloads
+  if (oxrs.isHassDiscoveryEnabled())
+  {
+    publishHassDiscovery();
   }
 }
