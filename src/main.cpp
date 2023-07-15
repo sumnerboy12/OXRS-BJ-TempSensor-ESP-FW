@@ -163,8 +163,9 @@ void publishHassDiscovery()
 
   char sensorId[8];
   char sensorName[8];
-  char valueTemplate[32];
+
   char telemetryTopic[64];
+  char valueTemplate[32];
 
   for (uint8_t i = 0; i < SENSOR_COUNT; i++)
   {
