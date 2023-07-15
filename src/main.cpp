@@ -176,7 +176,7 @@ void publishHassDiscovery()
     float tempC = sensors.getTempC(sensorAddress[i]);
     if (tempC != DEVICE_DISCONNECTED_C)
     {
-      oxrs.getMQTT()->getHassDiscoveryJson(json, sensorId);
+      oxrs.getHassDiscoveryJson(json, sensorId);
 
       sprintf_P(sensorName, PSTR("Temp %d"), i);
       json["name"]  = sensorName;
