@@ -180,14 +180,12 @@ void publishHassDiscovery()
       oxrs.getHassDiscoveryJson(json, sensorId);
 
       sprintf_P(sensorName, PSTR("Temp %d"), i);
-      json["name"]  = sensorName;
+      sprintf_P(valueTemplate, PSTR("{{ value_json.%s }}"), sensorId);
 
+      json["name"]  = sensorName;
       json["dev_cla"] = "temperature";
       json["unit_of_meas"] = "°C";
-
       json["stat_t"] = oxrs.getMQTT()->getTelemetryTopic(telemetryTopic);
-
-      sprintf_P(valueTemplate, PSTR("{{ value_json.%s }}"), sensorId);
       json["val_tpl"] = valueTemplate;
     }
 
