@@ -11,6 +11,7 @@
 #include <Arduino.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include <OXRS_HASS.h>
 
 #if defined(OXRS_ROOM8266)
 #include <OXRS_Room8266.h>
@@ -60,6 +61,9 @@ OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 DeviceAddress sensorAddress[SENSOR_COUNT];
 
+// Home Assistant self-discovery
+OXRS_HASS hass(oxrs.getMQTT());
+
 /*--------------------------- Program ---------------------------------*/
 void setConfigSchema()
 {
@@ -73,6 +77,9 @@ void setConfigSchema()
   telemetryIntervalMs["minimum"] = 1;
   telemetryIntervalMs["maximum"] = TELEMETRY_INTERVAL_MS_MAX;
 
+  // Add any Home Assistant config
+  hass.setConfigSchema(json);
+
   // Pass our config schema down to the Room8266 library
   oxrs.setConfigSchema(json.as<JsonVariant>());
 }
@@ -83,6 +90,9 @@ void jsonConfig(JsonVariant json)
   {
     telemetryIntervalMs = min(json["telemetryIntervalMs"].as<int>(), TELEMETRY_INTERVAL_MS_MAX);
   }
+
+  // Handle any Home Assistant config
+  hass.parseConfig(json);
 }
 
 void printAddress(DeviceAddress deviceAddress)
@@ -177,7 +187,7 @@ void publishHassDiscovery()
     float tempC = sensors.getTempC(sensorAddress[i]);
     if (tempC != DEVICE_DISCONNECTED_C)
     {
-      oxrs.getHassDiscoveryJson(json, sensorId);
+      hass.getDiscoveryJson(json, sensorId);
 
       sprintf_P(sensorName, PSTR("Temp %d"), i);
       sprintf_P(valueTemplate, PSTR("{{ value_json.%s }}"), sensorId);
@@ -189,7 +199,7 @@ void publishHassDiscovery()
       json["val_tpl"] = valueTemplate;
     }
 
-    oxrs.publishHassDiscovery(json, component, sensorId);
+    hass.publishDiscoveryJson(json, component, sensorId);
   }
 
   // Only publish once on boot
@@ -238,7 +248,7 @@ void loop()
   }
 
   // Check if we need to publish any Home Assistant discovery payloads
-  if (oxrs.isHassDiscoveryEnabled())
+  if (hass.isDiscoveryEnabled())
   {
     publishHassDiscovery();
   }
